@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan')
 const {default: helmet} = require('helmet')
@@ -5,7 +6,6 @@ const compression = require('compression')
 const { checkOverload } = require('./helpers/check.connect')
 
 const app = express()
-
 
 // init middlewarees
 
@@ -24,12 +24,7 @@ app.use(compression()) // giúp giảm tải dữ liệu khi fetch API
 require('./dbs/init.mongodb')
 checkOverload()
 // init routes
-app.get('/', (req, res, next) => {
-    return res.status(200).json({
-        message: 'welcome FantipJS',
-    })
-})
-
+app.use('', require('./routes'))
 // handling error
 
 

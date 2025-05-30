@@ -17,8 +17,7 @@ const checkOverload = () => {
         const numConnection = mongoose.connections.length
         const numCores = os.cpus().length;
         const memoryUsage = process.memoryUsage().rss;
-        console.log(`Memory usage:: ${memoryUsage / 1024 / 1024} MB`)
-        console.log(`Active connections: $`)
+     
         // exemple maximum number of connection based on number of cores
         const maxConnections = numCores * 5;// exempler each core can load 5 connection
         if(numConnection > maxConnections){
