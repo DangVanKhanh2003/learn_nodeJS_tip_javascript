@@ -1,0 +1,35 @@
+const express = require('express')
+const morgan = require('morgan')
+const {default: helmet} = require('helmet')
+const compression = require('compression')
+
+const app = express()
+
+
+// init middlewarees
+
+// morgan giúp show thông báo log trên terminal tùy theo mode
+app.use(morgan('dev')) // trạng thái log code được tô màu dễ cho dev phát triển
+//app.use(morgan('combined')) // trạng thái khi chạy product thì nên dùng khi chạy mode này
+// app.use(morgan('common'))
+// app.use(morgan('short'))
+// app.use(morgan('tiny'))
+
+app.use(helmet())// bảo vệ không cho hacker đọc tông tin quan trọng curl.ext http://localhost:3055 --include
+
+app.use(compression()) // giúp giảm tải dữ liệu khi fetch API
+
+// init db
+
+
+// init routes
+app.get('/', (req, res, next) => {
+    return res.status(200).json({
+        message: 'welcome FantipJS',
+    })
+})
+
+// handling error
+
+
+module.exports = app

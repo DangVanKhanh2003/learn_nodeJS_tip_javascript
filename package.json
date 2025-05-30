@@ -1,0 +1,29 @@
+{
+  "name": "learn_nodejs_tip_javascript",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DangVanKhanh2003/learn_nodeJS_tip_javascript.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DangVanKhanh2003/learn_nodeJS_tip_javascript/issues"
+  },
+  "homepage": "https://github.com/DangVanKhanh2003/learn_nodeJS_tip_javascript#readme",
+  "description": "",
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "compression": "^1.8.0",
+    "helmer": "^0.0.1",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.0"
+  }
+}
