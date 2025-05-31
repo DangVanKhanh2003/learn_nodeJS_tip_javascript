@@ -7,9 +7,12 @@
   package-lock.json
   package.json
   server.js
+  source_code.md
   src/
     .env
     app.js
+    auth/
+      authUtils.js
     configs/
       config.mongodb.js
     controller/
@@ -20,14 +23,16 @@
     helpers/
       check.connect.js
     model/
+      keytoken.model.js
       shop.model.js
     postman/
-      access.post.http
     routes/
       index.js
       access/
         index.js
     service/
+      access.service.js
+      keyToken.service.js
     utils/
 ```
 
@@ -81,7 +86,10 @@ app.use(morgan('dev')) // trạng thái log code được tô màu dễ cho dev 
 app.use(helmet())// bảo vệ không cho hacker đọc tông tin quan trọng curl.ext http://localhost:3055 --include
 
 app.use(compression()) // giúp giảm tải dữ liệu khi fetch API
-
+app.use(express.json())
+app.use(express.urlencoded({
+    extended: true
+}))
 // init db
 require('./dbs/init.mongodb')
 checkOverload()
@@ -91,6 +99,39 @@ app.use('', require('./routes'))
 
 
 module.exports = app
+```
+
+---
+
+
+### src\auth\authUtils.js
+
+```js
+'use strict'
+
+const JWT = require('jsonwebtoken')
+const createTokenPair = async(payload, privateKey) =>{
+    try{
+        // access token
+        const accessToken = await JWT.sign(payload, privateKey, {
+            algorithm: 'RS256',
+            expiresIn: '2 days'
+        })
+        const refeshToken = await JWT.sign(payload, privateKey, {
+            algorithm: 'RS256',
+            expiresIn: '2 days'
+        })
+        return {accessToken, refeshToken}
+    }
+    catch(error)
+    {
+
+    }
+}
+
+module.exports = {
+    createTokenPair
+}
 ```
 
 ---
@@ -154,18 +195,14 @@ module.exports = config[env]
 
 ```js
 'use strict'
-
+const AccessService = require("../service/access.service")
 class AccessController{
     signUp = async (req, res, next) => {
         try{
                 /// 200 OK
                 /// 2001  CREATE
             console.log(`[P]::signUp::`, req.body)
-            return res.status(200).json({
-                code: '2001',
-                metadata: {userid: 1}
-
-            })
+            return res.status(200).json(await AccessService.signUp(req.body))
         }
         catch(error){
             next(error)
@@ -288,6 +325,45 @@ module.exports = {
 ---
 
 
+### src\model\keytoken.model.js
+
+```js
+'use strict'
+
+const {Schema, model, Collection} = require('mongoose'); // Erase if already required
+
+const DOCUMENT_NAME = 'key'
+const COLLECTION_NAME = 'keys'
+// Declare the Schema of the Mongo model
+var keyTokenSchema = new mongoose.Schema({
+    user:{
+        type:Schema.Types.ObjectId,
+        required: true,
+        ref: 'Shop'
+    },
+    publicKey:{
+        type:String,
+        required:true,
+    },
+    refeshToken:{
+        type: Array,
+        default: []
+    },
+},
+    {
+        collection: COLLECTION_NAME,
+        timestamps: true
+    }
+    
+);
+
+//Export the model
+module.exports = mongoose.model(DOCUMENT_NAME, keyTokenSchema);
+```
+
+---
+
+
 ### src\model\shop.model.js
 
 ```js
@@ -334,7 +410,7 @@ var shopSchema = new Schema({
 });
 
 //Export the model
-module.exports = mongoose.model(DOCUMENT_NAME, COLLECTION_NAME);
+module.exports = model(DOCUMENT_NAME, shopSchema);
 ```
 
 ---
@@ -348,7 +424,7 @@ module.exports = mongoose.model(DOCUMENT_NAME, COLLECTION_NAME);
 const express = require('express')
 const router = express.Router()
 
-router.use('/v1/api/', require('./access'))
+router.use('/v1/api', require('./access'))
 // router.get('/', (req, res, next) => {
 //     return res.status(200).json({
 //         message: 'welcome FantipJS',
@@ -371,9 +447,128 @@ const accessController = require('../../controller/access.controller')
 const router = express.Router()
 
 //signUp
-router.post('shop/signup', accessController.signUp)
+router.post('/shop/signup', accessController.signUp)
 
 module.exports = router
+```
+
+---
+
+
+### src\service\access.service.js
+
+```js
+'use strict'
+
+const shopModel = require("../model/shop.model")
+const bycrypt = require('bcrypt')
+const crypto = require('crypto')
+const keyTokenService = require("./keyToken.service")
+const { createTokenPair } = require("../auth/authUtils")
+const RoleShop = {
+    SHOP: 'SHOP',
+    WRITER: 'WRITER',
+    EDITOR: 'EDITOR',
+    ADMIN: 'ADMIN'
+}
+class AccessService{
+    static signUp = async () => {
+        try 
+        {
+            //step1: check email exists??
+            const hoderShop = await shopModel.findOne({email}).lean()
+            if(hoderShop)
+            {
+                return {
+                    code: 'xxx',
+                    message: 'Shop already registered!'
+                }
+            }
+            const passwordHash =  await bycrypt.hash(password, 10)
+            const newShop = await shopModel.create({
+                name, email, passwordHash, roles: [RoleShop.SHOP]
+            })
+
+            if(newShop){
+                //create private key and public key
+                const{privateKey, publicKey} = crypto.generateKeyPairSync('rsa', {
+                    modulusLength: 4096
+                })
+                
+                console.log({privateKey, publicKey}) //save collection key store
+
+                const publicKeyString = await keyTokenService.createKeyToken({
+                    userId: newShop._id,
+                    publicKey
+                })
+
+                if(!publicKeyString)
+                {
+                    return {
+                        code: 'xxx',
+                        message: 'public key string error!'
+                    }
+                }
+                
+                const tokens = await createTokenPair({userId: newShop._id, email}, privateKey)
+                console.log("Create Token Success:: ", tokens)
+                return {
+                    code: 201,
+                    metadata:{
+                        shop: newShop,
+                        tokens
+                    }
+                }
+            }
+
+            return {
+                code: 200, 
+                metadata: null
+            }
+        }
+        catch (error)
+        {
+            return {
+                code: 'xxx',
+                message:error.message,
+                status: 'error'
+            }
+        }
+    }
+
+}
+
+moudule.exports = AccessSErvice
+```
+
+---
+
+
+### src\service\keyToken.service.js
+
+```js
+'use strict'
+
+const keytokenModel = require("../model/keytoken.model")
+
+class  keyTokenService{
+    static createKeyToken = async ({user, publicKey}) =>{
+        try{
+            const publicKeyString = publicKey.toString()
+            const tokens = await keytokenModel.create({
+                user: userId,
+                publicKey: publicKeyString
+            })
+            
+            return tokens ? publicKeyString : null
+        }
+        catch(error){
+            return error
+        }
+    }
+}
+
+module.exports = KeyboardEvent
 ```
 
 ---
