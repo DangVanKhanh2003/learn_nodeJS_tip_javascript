@@ -19,10 +19,14 @@ var keyTokenSchema = new mongoose.Schema({
         type:String,
         required:true,
     },
-    refeshToken:{
+    refeshTokensUsed:{
         type: Array,
         default: []
     },
+    refreshToken: {
+        type: String,
+        require: true,
+    }
 },
     {
         collection: COLLECTION_NAME,

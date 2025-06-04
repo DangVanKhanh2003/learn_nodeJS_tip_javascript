@@ -6,14 +6,42 @@ const crypto = require('crypto')
 const keyTokenService = require("./keyToken.service")
 const { createTokenPair } = require("../auth/authUtils")
 const { getIntoData } = require("../utils")
-const { BadRequestError, ConflictRequestError } = require("../core/error.response")
+const { BadRequestError, ConflictRequestError, AuthFailureError } = require("../core/error.response")
 const RoleShop = {
     SHOP: 'SHOP',
     WRITER: 'WRITER',
     EDITOR: 'EDITOR',
     ADMIN: 'ADMIN'
 }
+
+const {findByEmail} = require('./shop.service')
 class AccessService{
+
+    static login = async({email, password, refreshToken = null}) =>{
+        const foundShop = await findByEmail({email})
+        if(!foundShop) throw new BadRequestError('Shop not registered')
+
+        const match = bycrypt.compare(password, foundShop.password)
+        if(!match) throw new AuthFailureError('Authentication error')
+
+        const privateKey = crypto.randomBytes(64).toString('hex')
+        const publicKey = crypto.randomBytes(64).toString('hex')
+        const {_id: userId} = foundShop._id
+        const tokens = await createTokenPair({userId: userId, email}, privateKey)
+
+        await keyTokenService.createKeyToken({
+            userId,
+            privateKey,
+            publicKey,
+            refreshToken: tokens.refeshToken,
+        })
+        return {
+            shop: getIntoData({fileds: ["_id", "name", "email"], object: foundShop}),
+            tokens
+        }
+    }
+
+
     static signUp = async ({name, email, password}) => {
         try 
         {
@@ -51,7 +79,7 @@ class AccessService{
                 
                 const tokens = await createTokenPair({userId: newShop._id, email}, privateKey)
 
-                console.log("Create Token Success:: ", tokens)
+                console.log("Create Token Success: ", tokens)
                 return {
                     code: 201,
                     metadata:{
@@ -68,11 +96,7 @@ class AccessService{
         }
         catch (error)
         {
-            return {
-                code: 'xxx',
-                message:error.message,
-                status: error.status
-            }
+            throw error
         }
     }
 
